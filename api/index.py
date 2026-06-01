@@ -1,0 +1,152 @@
+from flask import Flask, request, jsonify
+from groq import Groq
+import os
+
+app = Flask(__name__)
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+HTML = """
+<!DOCTYPE html>
+<html>
+<head><title>Cyra AI</title></head>
+<body><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYRA-AI | Powered by Nehmar Company</title>
+  <meta name="description" content="CYRA-AI — Nehmar Company ka intelligent AI assistant">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    :root{--bg:#0a0a0a;--surface:#111111;--surface2:#1a1a1a;--border:#2a2a2a;--border2:#333;--grey1:#888;--grey2:#555;--grey3:#3a3a3a;--white:#f0f0f0;--accent:#c0c0c0;}
+    body{background:var(--bg);font-family:'Syne',sans-serif;color:var(--white);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+    .header{padding:18px 24px;background:linear-gradient(180deg,#161616 0%,#0f0f0f 100%);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .brand{display:flex;flex-direction:column;gap:2px;}
+    .brand-title{font-size:22px;font-weight:800;letter-spacing:3px;color:var(--white);line-height:1;}
+    .brand-title span{color:var(--grey1);}
+    .brand-sub{font-size:9px;color:var(--grey2);letter-spacing:2px;font-family:'DM Mono',monospace;text-transform:uppercase;}
+    .status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--grey1);font-family:'DM Mono',monospace;}
+    .dot{width:6px;height:6px;border-radius:50%;background:#4a9;animation:pulse 2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(68,170,136,0.4);}50%{opacity:0.7;box-shadow:0 0 0 4px rgba(68,170,136,0);}}
+    .chat-area{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;background:var(--bg);scrollbar-width:thin;scrollbar-color:var(--grey3) transparent;}
+    .chat-area::-webkit-scrollbar{width:4px;}
+    .chat-area::-webkit-scrollbar-thumb{background:var(--grey3);border-radius:2px;}
+    .welcome-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:4px;display:flex;flex-direction:column;gap:6px;animation:fadeSlideIn 0.4s cubic-bezier(0.22,1,0.36,1) both;}
+    .welcome-card .wc-title{font-size:17px;font-weight:800;letter-spacing:2px;color:var(--white);}
+    .welcome-card .wc-title span{color:var(--grey1);}
+    .welcome-card .wc-powered{font-size:9px;color:var(--grey2);letter-spacing:2px;font-family:'DM Mono',monospace;text-transform:uppercase;margin-bottom:4px;}
+    .welcome-card .wc-msg{font-size:13px;color:var(--grey1);line-height:1.6;}
+    .msg-row{display:flex;align-items:flex-end;gap:10px;animation:fadeSlideIn 0.35s cubic-bezier(0.22,1,0.36,1) both;}
+    .msg-row.user{flex-direction:row-reverse;}
+    @keyframes fadeSlideIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+    .avatar{width:30px;height:30px;border-radius:6px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .avatar.ai{background:var(--surface2);border:1px solid var(--border2);}
+    .avatar.user{background:#1e1e1e;border:1px solid var(--border);}
+    .avatar .av-name{font-size:8px;font-weight:800;letter-spacing:1px;color:var(--accent);line-height:1;}
+    .avatar .av-sub{font-size:6px;color:var(--grey2);letter-spacing:0.5px;font-family:'DM Mono',monospace;line-height:1;margin-top:1px;}
+    .bubble{max-width:68%;padding:12px 16px;font-size:13.5px;line-height:1.7;}
+    .bubble.ai{background:var(--surface);border:1px solid var(--border);border-radius:0 12px 12px 12px;color:var(--white);box-shadow:0 4px 24px rgba(0,0,0,0.4);}
+    .bubble.user{background:linear-gradient(135deg,#1f1f1f,#252525);border:1px solid var(--border2);border-radius:12px 0 12px 12px;color:var(--accent);}
+    .bubble-time{font-size:10px;color:var(--grey2);font-family:'DM Mono',monospace;margin-top:5px;}
+    .typing-indicator{display:flex;align-items:center;gap:4px;padding:14px 16px;}
+    .typing-indicator span{width:6px;height:6px;border-radius:50%;background:var(--grey2);animation:bounce 1.2s infinite;}
+    .typing-indicator span:nth-child(2){animation-delay:0.2s;}
+    .typing-indicator span:nth-child(3){animation-delay:0.4s;}
+    @keyframes bounce{0%,60%,100%{transform:translateY(0);}30%{transform:translateY(-5px);}}
+    .input-area{padding:16px 20px;background:#0e0e0e;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;}
+    .input-row{display:flex;align-items:center;gap:10px;}
+    .input-wrap{flex:1;display:flex;align-items:center;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:0 14px;transition:border-color 0.2s;}
+    .input-wrap:focus-within{border-color:#555;}
+    .input-wrap input{flex:1;background:transparent;border:none;outline:none;color:var(--white);font-family:'Syne',sans-serif;font-size:13.5px;padding:12px 0;}
+    .input-wrap input::placeholder{color:var(--grey2);}
+    .send-btn{width:40px;height:40px;border-radius:8px;cursor:pointer;background:linear-gradient(135deg,#2a2a2a,#333);border:1px solid var(--border2);color:var(--accent);display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+    .send-btn:hover{background:linear-gradient(135deg,#333,#3a3a3a);transform:translateY(-1px);}
+    .send-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;}
+    .footer-brand{text-align:center;font-size:9px;color:var(--grey2);font-family:'DM Mono',monospace;letter-spacing:2px;text-transform:uppercase;}
+    .footer-brand b{color:var(--grey1);}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="brand-title">CYRA<span>-AI</span></div>
+      <div class="brand-sub">Powered by Nehmar Company</div>
+    </div>
+    <div class="status"><div class="dot"></div>Online</div>
+  </div>
+  <div class="chat-area" id="chatArea">
+    <div class="welcome-card">
+      <div class="wc-title">CYRA<span>-AI</span></div>
+      <div class="wc-powered">Powered by Nehmar Company</div>
+      <div class="wc-msg">Salam! Main aapka intelligent assistant hun. Koi bhi sawal poochein — main haazir hun.</div>
+    </div>
+  </div>
+  <div class="input-area">
+    <div class="input-row">
+      <div class="input-wrap">
+        <input type="text" id="msgInput" placeholder="CYRA-AI se kuch bhi pucho..." onkeydown="if(event.key==='Enter')sendMsg()">
+      </div>
+      <button class="send-btn" onclick="sendMsg()">
+        <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+    <div class="footer-brand"><b>CYRA-AI</b> · Powered by Nehmar Company</div>
+  </div>
+  <script>
+    const chatArea=document.getElementById('chatArea');
+    const input=document.getElementById('msgInput');
+    let history=[];
+    function timeNow(){return new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
+    function addMsg(text,who){
+      const row=document.createElement('div');
+      row.className=`msg-row ${who}`;
+      const aiAv=`<div class="avatar ai"><div class="av-name">CYRA</div><div class="av-sub">AI</div></div>`;
+      const userAv=`<div class="avatar user"><div class="av-name">YOU</div></div>`;
+      row.innerHTML=`${who==='ai'?aiAv:userAv}<div><div class="bubble ${who}">${text}<div class="bubble-time">${timeNow()}</div></div></div>`;
+      chatArea.appendChild(row);chatArea.scrollTop=chatArea.scrollHeight;
+    }
+    function showTyping(){
+      const row=document.createElement('div');row.className='msg-row';row.id='typing';
+      row.innerHTML=`<div class="avatar ai"><div class="av-name">CYRA</div><div class="av-sub">AI</div></div><div><div class="bubble ai" style="padding:0"><div class="typing-indicator"><span></span><span></span><span></span></div></div></div>`;
+      chatArea.appendChild(row);chatArea.scrollTop=chatArea.scrollHeight;
+    }
+    function removeTyping(){const t=document.getElementById('typing');if(t)t.remove();}
+    async function sendMsg(){
+      const msg=input.value.trim();if(!msg)return;
+      input.value='';addMsg(msg,'user');
+      history.push({role:'user',content:msg});showTyping();
+      try{
+        const res=await fetch('/chat',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({messages:history})
+        });
+        const data=await res.json();
+        const reply=data.reply||'Mujhe samajh nahi aaya.';
+        removeTyping();addMsg(reply,'ai');
+        history.push({role:'assistant',content:reply});
+      }catch(e){removeTyping();addMsg('Connection error. Thodi der baad try karein.','ai');}
+    }
+  </script>
+</body>
+</html>
+
+</body>
+</html>
+"""
+
+@app.route("/")
+def home():
+    return HTML
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.json
+    messages = data.get("messages", [])
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=messages,
+        max_tokens=1024
+    )
+    return jsonify({"reply": response.choices[0].message.content})
